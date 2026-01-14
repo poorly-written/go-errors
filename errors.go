@@ -23,23 +23,23 @@ type DetailedError interface {
 	EnableShouldReport() DetailedError
 	ShouldReport() bool
 	Code(code Code) DetailedError
-	ErrorCode(errorCode string) DetailedError
+	InternalCode(errorCode string) DetailedError
 	AddMetadata(key string, value interface{}) DetailedError
 	GetMetadata() map[string]interface{}
 	HasMetadata(keys ...string) bool
 }
 
 type err struct {
-	message    string
-	original   error
-	frames     []uintptr
-	stErr      *status.Status
-	headers    map[string][]string
-	trailers   map[string][]string
-	reportable bool
-	code       Code
-	errCode    *string
-	metadata   map[string]interface{}
+	message      string
+	original     error
+	frames       []uintptr
+	stErr        *status.Status
+	headers      map[string][]string
+	trailers     map[string][]string
+	reportable   bool
+	code         Code
+	internalCode *string
+	metadata     map[string]interface{}
 }
 
 func (e *err) Error() string {
@@ -116,8 +116,8 @@ func (e *err) Code(code Code) DetailedError {
 	return e
 }
 
-func (e *err) ErrorCode(errorCode string) DetailedError {
-	e.errCode = &errorCode
+func (e *err) InternalCode(code string) DetailedError {
+	e.internalCode = &code
 
 	return e
 }
@@ -168,15 +168,15 @@ func New(e interface{}, msg ...string) DetailedError {
 	length := runtime.Callers(2, callers[:])
 
 	de := &err{
-		message:    message,
-		original:   original,
-		frames:     callers[:length],
-		stErr:      nil,
-		headers:    make(map[string][]string),
-		trailers:   make(map[string][]string),
-		reportable: false,
-		errCode:    nil,
-		metadata:   make(map[string]interface{}),
+		message:      message,
+		original:     original,
+		frames:       callers[:length],
+		stErr:        nil,
+		headers:      make(map[string][]string),
+		trailers:     make(map[string][]string),
+		reportable:   false,
+		internalCode: nil,
+		metadata:     make(map[string]interface{}),
 	}
 
 	stErr, ok := status.FromError(original)
