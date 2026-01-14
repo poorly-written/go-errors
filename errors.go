@@ -42,11 +42,7 @@ type err struct {
 }
 
 func (e *err) Error() string {
-	if e.original == nil {
-		return e.message
-	}
-
-	return e.original.Error()
+	return e.message
 }
 
 func (e *err) Unwrap() error {
