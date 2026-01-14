@@ -20,6 +20,12 @@ type DetailedError interface {
 	AddTrailer(key string, value ...string) DetailedError
 	RemoveTrailer(key string) DetailedError
 	StackFrames() []uintptr
+	EnableShouldReport() DetailedError
+	ShouldReport() bool
+	ErrorCode(errorCode string) DetailedError
+	AddMetadata(key string, value interface{}) DetailedError
+	GetMetadata() map[string]interface{}
+	HasMetadata(keys ...string) bool
 }
 
 type err struct {
@@ -29,6 +35,10 @@ type err struct {
 	stErr    *status.Status
 	headers  map[string][]string
 	trailers map[string][]string
+
+	reportable bool
+	errCode    *string
+	metadata   map[string]interface{}
 }
 
 func (e *err) Error() string {
@@ -93,6 +103,42 @@ func (e *err) StackFrames() []uintptr {
 	return e.frames
 }
 
+func (e *err) EnableShouldReport() DetailedError {
+	e.reportable = true
+
+	return e
+}
+
+func (e *err) ShouldReport() bool {
+	return e.reportable
+}
+
+func (e *err) ErrorCode(errorCode string) DetailedError {
+	e.errCode = &errorCode
+
+	return e
+}
+
+func (e *err) AddMetadata(key string, value interface{}) DetailedError {
+	e.metadata[key] = value
+
+	return e
+}
+
+func (e *err) GetMetadata() map[string]interface{} {
+	return e.metadata
+}
+
+func (e *err) HasMetadata(keys ...string) bool {
+	if len(keys) == 0 {
+		return len(e.metadata) > 0
+	}
+
+	_, ok := e.metadata[keys[0]]
+
+	return ok
+}
+
 func New(e interface{}, msg ...string) DetailedError {
 	var original error
 	var message string
@@ -119,11 +165,15 @@ func New(e interface{}, msg ...string) DetailedError {
 	length := runtime.Callers(2, callers[:])
 
 	de := &err{
-		message:  message,
-		original: original,
-		frames:   callers[:length],
-		headers:  make(map[string][]string),
-		trailers: make(map[string][]string),
+		message:    message,
+		original:   original,
+		frames:     callers[:length],
+		stErr:      nil,
+		headers:    make(map[string][]string),
+		trailers:   make(map[string][]string),
+		reportable: false,
+		errCode:    nil,
+		metadata:   make(map[string]interface{}),
 	}
 
 	stErr, ok := status.FromError(original)
