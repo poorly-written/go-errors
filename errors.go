@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strconv"
 
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -34,8 +36,8 @@ type err struct {
 	original     error
 	frames       []uintptr
 	stErr        *status.Status
-	headers      map[string][]string
-	trailers     map[string][]string
+	headers      metadata.MD
+	trailers     metadata.MD
 	reportable   bool
 	code         Code
 	internalCode *string
@@ -142,7 +144,26 @@ func (e *err) HasMetadata(keys ...string) bool {
 	return ok
 }
 
-func New(e interface{}, msg ...string) DetailedError {
+func New(err interface{}, msgs ...string) DetailedError {
+	var msg *string
+	if len(msgs) > 0 {
+		msg = &msgs[0]
+	}
+
+	return NewDetailedError(err, msg, nil, nil, 1)
+}
+
+func NewWithHeaders(err error, headers metadata.MD) DetailedError {
+	return NewDetailedError(err, nil, headers, nil, 1)
+}
+
+func NewDetailedError(
+	e interface{},
+	msg *string,
+	headers metadata.MD,
+	trailers metadata.MD,
+	skipCaller int,
+) DetailedError {
 	var original error
 	var message string
 	switch e := e.(type) {
@@ -156,24 +177,35 @@ func New(e interface{}, msg ...string) DetailedError {
 
 		original = e
 		message = e.Error()
+	case nil:
+		message = ""
 	default:
 		message = fmt.Sprintf("%v", e)
 	}
 
-	if len(msg) > 0 {
-		message = msg[0]
+	if msg != nil {
+		message = *msg
 	}
 
 	callers := make([]uintptr, 50)
-	length := runtime.Callers(2, callers[:])
+	length := runtime.Callers(2+skipCaller, callers[:])
+
+	if len(headers) == 0 {
+		headers = make(metadata.MD)
+	}
+
+	if len(trailers) == 0 {
+		trailers = make(metadata.MD)
+	}
 
 	de := &err{
 		message:      message,
 		original:     original,
 		frames:       callers[:length],
 		stErr:        nil,
-		headers:      make(map[string][]string),
-		trailers:     make(map[string][]string),
+		headers:      headers,
+		trailers:     trailers,
+		code:         defaultErrorCode,
 		reportable:   false,
 		internalCode: nil,
 		metadata:     make(map[string]interface{}),
@@ -185,6 +217,22 @@ func New(e interface{}, msg ...string) DetailedError {
 	}
 
 	de.stErr = stErr
+
+	statusCode := int(stErr.Code())
+	if httpStatusCode := headers.Get(httpHeaderKey); len(httpStatusCode) > 0 {
+		if cc, e := strconv.Atoi(httpStatusCode[0]); e == nil {
+			statusCode = cc
+		}
+	}
+
+	// if a message is not provided and message from error is not an empty string, overwrite it
+	if stMsg := stErr.Message(); msg == nil && stMsg != "" {
+		de.message = stMsg
+	}
+
+	if code := codeFromValue(statusCode); code.IsError() {
+		de.code = code
+	}
 
 	return de
 }
