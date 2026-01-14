@@ -22,6 +22,7 @@ type DetailedError interface {
 	StackFrames() []uintptr
 	EnableShouldReport() DetailedError
 	ShouldReport() bool
+	Code(code Code) DetailedError
 	ErrorCode(errorCode string) DetailedError
 	AddMetadata(key string, value interface{}) DetailedError
 	GetMetadata() map[string]interface{}
@@ -29,14 +30,14 @@ type DetailedError interface {
 }
 
 type err struct {
-	message  string
-	original error
-	frames   []uintptr
-	stErr    *status.Status
-	headers  map[string][]string
-	trailers map[string][]string
-
+	message    string
+	original   error
+	frames     []uintptr
+	stErr      *status.Status
+	headers    map[string][]string
+	trailers   map[string][]string
 	reportable bool
+	code       Code
 	errCode    *string
 	metadata   map[string]interface{}
 }
@@ -107,6 +108,12 @@ func (e *err) EnableShouldReport() DetailedError {
 
 func (e *err) ShouldReport() bool {
 	return e.reportable
+}
+
+func (e *err) Code(code Code) DetailedError {
+	e.code = code
+
+	return e
 }
 
 func (e *err) ErrorCode(errorCode string) DetailedError {
