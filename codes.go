@@ -22,10 +22,6 @@ func (c Code) IsError() bool {
 }
 
 func (c Code) HttpCode() int {
-	if c.http == 0 {
-		return Ok.http
-	}
-
 	return c.http
 }
 
