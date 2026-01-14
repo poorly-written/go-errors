@@ -21,7 +21,7 @@ type DetailedError interface {
 	RemoveHeader(key string) DetailedError
 	AddTrailer(key string, value ...string) DetailedError
 	RemoveTrailer(key string) DetailedError
-	StackFrames() []uintptr
+	StackFrames() []frame
 	EnableShouldReport() DetailedError
 	ShouldReport() bool
 	Code(code Code) DetailedError
@@ -34,7 +34,7 @@ type DetailedError interface {
 type err struct {
 	message      string
 	original     error
-	frames       []uintptr
+	frames       []frame
 	stErr        *status.Status
 	headers      metadata.MD
 	trailers     metadata.MD
@@ -98,7 +98,7 @@ func (e *err) RemoveTrailer(key string) DetailedError {
 	return e
 }
 
-func (e *err) StackFrames() []uintptr {
+func (e *err) StackFrames() []frame {
 	return e.frames
 }
 
@@ -187,9 +187,6 @@ func NewDetailedError(
 		message = *msg
 	}
 
-	callers := make([]uintptr, 50)
-	length := runtime.Callers(2+skipCaller, callers[:])
-
 	if len(headers) == 0 {
 		headers = make(metadata.MD)
 	}
@@ -198,10 +195,18 @@ func NewDetailedError(
 		trailers = make(metadata.MD)
 	}
 
+	callers := make([]uintptr, stackTraceDepth)
+	length := runtime.Callers(2+skipCaller, callers[:])
+
+	frames := make([]frame, length)
+	for i, pc := range callers[:length] {
+		frames[i] = frame(pc)
+	}
+
 	de := &err{
 		message:      message,
 		original:     original,
-		frames:       callers[:length],
+		frames:       frames,
 		stErr:        nil,
 		headers:      headers,
 		trailers:     trailers,
