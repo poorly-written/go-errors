@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package errors;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "/;errors";
+
+message DetailedErrorResponse {
+  bool error = 1;
+  string message = 2;
+  optional google.protobuf.Struct reasons = 3;
+  optional string code = 4;
+}
