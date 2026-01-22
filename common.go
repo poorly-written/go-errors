@@ -1,9 +1,11 @@
 package errors
 
 import (
+	"encoding/json"
 	"sync"
 
 	grpcCodes "google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var stackTraceDepth = 50
@@ -115,5 +117,56 @@ var codeMapper = map[int]Code{
 func SetCodeMapper(mapper map[int]Code) {
 	codeMapperSetOnce.Do(func() {
 		codeMapper = mapper
+	})
+}
+
+type extractDetails func(idx int, err any) (message *string, internalCode *string, reasons map[string][]Reason)
+
+var detailsExtractor extractDetails = func(_ int, err any) (*string, *string, map[string][]Reason) {
+	anyErr, ok := err.(*anypb.Any)
+	if !ok {
+		return nil, nil, nil
+	}
+
+	dErr := &DetailedErrorResponse{}
+	if err := anyErr.UnmarshalTo(dErr); err != nil {
+		return nil, nil, nil
+	}
+
+	var message, code *string
+	if dErr.Message != "" {
+		message = &dErr.Message
+	}
+
+	if dErr.Code != nil {
+		code = dErr.Code
+	}
+
+	var reasons map[string][]Reason
+	if dErr.Reasons != nil {
+		r := make(map[string][]reason)
+		if bytes, err := dErr.Reasons.MarshalJSON(); err == nil {
+			if err := json.Unmarshal(bytes, &r); err == nil {
+				for k, items := range r {
+					if _, ok := reasons[k]; !ok {
+						reasons[k] = make([]Reason, len(items))
+					}
+
+					for _, item := range items {
+						reasons[k] = append(reasons[k], item)
+					}
+				}
+			}
+		}
+	}
+
+	return message, code, reasons
+}
+
+var reasonExtractorSetOnce sync.Once
+
+func SetReasonExtractor(extractor extractDetails) {
+	reasonExtractorSetOnce.Do(func() {
+		detailsExtractor = extractor
 	})
 }

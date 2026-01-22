@@ -29,6 +29,9 @@ type DetailedError interface {
 	AddMetadata(key string, value interface{}) DetailedError
 	GetMetadata() map[string]interface{}
 	HasMetadata(keys ...string) bool
+	AddReason(key string, reason Reason) DetailedError
+	HasReasons() bool
+	GetReasons() map[string][]Reason
 }
 
 type err struct {
@@ -38,6 +41,7 @@ type err struct {
 	stErr        *status.Status
 	headers      metadata.MD
 	trailers     metadata.MD
+	reasons      map[string][]Reason
 	reportable   bool
 	code         Code
 	internalCode *string
@@ -140,6 +144,24 @@ func (e *err) HasMetadata(keys ...string) bool {
 	return ok
 }
 
+func (e *err) AddReason(key string, reason Reason) DetailedError {
+	if _, ok := e.reasons[key]; !ok {
+		e.reasons[key] = make([]Reason, 0)
+	}
+
+	e.reasons[key] = append(e.reasons[key], reason)
+
+	return e
+}
+
+func (e *err) HasReasons() bool {
+	return len(e.reasons) > 0
+}
+
+func (e *err) GetReasons() map[string][]Reason {
+	return e.reasons
+}
+
 func New(e interface{}, opts ...ErrorOption) DetailedError {
 	var original error
 	var message string
@@ -187,6 +209,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		stErr:        nil,
 		headers:      errOpts.headers,
 		trailers:     errOpts.trailers,
+		reasons:      make(map[string][]Reason),
 		code:         defaultErrorCode,
 		reportable:   false,
 		internalCode: nil,
@@ -212,6 +235,25 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 
 	if code := codeFromValue(statusCode); code.IsError() {
 		de.code = code
+	}
+
+	for idx, detail := range stErr.Details() {
+		var message *string
+		var code *string
+		var reasons map[string][]Reason
+
+		message, code, reasons = detailsExtractor(idx, detail)
+		if message != nil {
+			de.message = *message
+		}
+
+		if code != nil {
+			de.internalCode = code
+		}
+
+		for k, v := range reasons {
+			de.reasons[k] = append(de.reasons[k], v...)
+		}
 	}
 
 	return de
