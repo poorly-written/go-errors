@@ -49,11 +49,7 @@ func (e *err) Error() string {
 }
 
 func (e *err) Unwrap() error {
-	if e.original != nil {
-		return e.original
-	}
-
-	return nil
+	return e.original
 }
 
 func (e *err) Original() error {
