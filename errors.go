@@ -144,28 +144,10 @@ func (e *err) HasMetadata(keys ...string) bool {
 	return ok
 }
 
-func New(err interface{}, msgs ...string) DetailedError {
-	var msg *string
-	if len(msgs) > 0 {
-		msg = &msgs[0]
-	}
-
-	return NewDetailedError(err, msg, nil, nil, 1)
-}
-
-func NewWithHeaders(err error, headers metadata.MD) DetailedError {
-	return NewDetailedError(err, nil, headers, nil, 1)
-}
-
-func NewDetailedError(
-	e interface{},
-	msg *string,
-	headers metadata.MD,
-	trailers metadata.MD,
-	skipCaller int,
-) DetailedError {
+func New(e interface{}, opts ...ErrorOption) DetailedError {
 	var original error
 	var message string
+
 	switch e := e.(type) {
 	case error:
 		// Firstly, if it's another DetailedError instance, then return early
@@ -183,20 +165,19 @@ func NewDetailedError(
 		message = fmt.Sprintf("%v", e)
 	}
 
-	if msg != nil {
-		message = *msg
+	errOpts := &errorOptions{
+		headers:      make(metadata.MD),
+		trailers:     make(metadata.MD),
+		callerOffset: 2,
+		message:      message,
 	}
 
-	if len(headers) == 0 {
-		headers = make(metadata.MD)
-	}
-
-	if len(trailers) == 0 {
-		trailers = make(metadata.MD)
+	for _, opt := range opts {
+		opt.apply(errOpts)
 	}
 
 	callers := make([]uintptr, stackTraceDepth)
-	length := runtime.Callers(2+skipCaller, callers[:])
+	length := runtime.Callers(errOpts.callerOffset, callers[:])
 
 	frames := make([]frame, length)
 	for i, pc := range callers[:length] {
@@ -204,12 +185,12 @@ func NewDetailedError(
 	}
 
 	de := &err{
-		message:      message,
+		message:      errOpts.message,
 		original:     original,
 		frames:       frames,
 		stErr:        nil,
-		headers:      headers,
-		trailers:     trailers,
+		headers:      errOpts.headers,
+		trailers:     errOpts.trailers,
 		code:         defaultErrorCode,
 		reportable:   false,
 		internalCode: nil,
@@ -221,17 +202,15 @@ func NewDetailedError(
 		return de
 	}
 
-	de.stErr = stErr
-
 	statusCode := int(stErr.Code())
-	if httpStatusCode := headers.Get(httpHeaderKey); len(httpStatusCode) > 0 {
+	if httpStatusCode := errOpts.headers.Get(httpHeaderKey); len(httpStatusCode) > 0 {
 		if cc, e := strconv.Atoi(httpStatusCode[0]); e == nil {
 			statusCode = cc
 		}
 	}
 
 	// if a message is not provided and message from error is not an empty string, overwrite it
-	if stMsg := stErr.Message(); msg == nil && stMsg != "" {
+	if stMsg := stErr.Message(); message == "" && stMsg != "" {
 		de.message = stMsg
 	}
 
