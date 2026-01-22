@@ -1,12 +1,16 @@
 package errors
 
-type Reason struct {
+type Reason interface {
+	ToHashMap() map[string]interface{}
+}
+
+type reason struct {
 	Type      string     `json:"type"`
 	Info      *string    `json:"info"`
 	Attribute *Attribute `json:"attribute"`
 }
 
-func (r Reason) toHashMap() map[string]interface{} {
+func (r reason) ToHashMap() map[string]interface{} {
 	d := make(map[string]interface{})
 
 	d["type"] = r.Type
