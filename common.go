@@ -144,16 +144,14 @@ var detailsExtractor extractDetails = func(_ int, err any) (*string, *string, ma
 
 	var reasons map[string][]Reason
 	if dErr.Reasons != nil {
-		r := make(map[string][]reason)
+		concrete := make(map[string][]reason)
 		if bytes, err := dErr.Reasons.MarshalJSON(); err == nil {
-			if err := json.Unmarshal(bytes, &r); err == nil {
-				for k, items := range r {
-					if _, ok := reasons[k]; !ok {
-						reasons[k] = make([]Reason, len(items))
-					}
-
-					for _, item := range items {
-						reasons[k] = append(reasons[k], item)
+			if err := json.Unmarshal(bytes, &concrete); err == nil {
+				reasons = make(map[string][]Reason, len(concrete))
+				for k, v := range concrete {
+					reasons[k] = make([]Reason, len(v))
+					for i, item := range v {
+						reasons[k][i] = item
 					}
 				}
 			}
