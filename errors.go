@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"strconv"
+	"sync"
 
 	"google.golang.org/grpc"
 	grpcCodes "google.golang.org/grpc/codes"
@@ -41,6 +42,8 @@ type DetailedError interface {
 }
 
 type err struct {
+	lock            sync.Mutex
+	status          *status.Status
 	message         string
 	original        error
 	frames          []frame
@@ -76,6 +79,14 @@ func (e *err) setTrailers(md metadata.MD) error {
 }
 
 func (e *err) GRPCStatus() *status.Status {
+	// This method is called multiple times, using mutex so that it is only generated once
+	e.lock.Lock()
+	defer e.lock.Unlock()
+
+	if e.status != nil {
+		return e.status
+	}
+
 	// set http status code header
 	e.setHeaders(metadata.Pairs(httpHeaderKey, strconv.Itoa(e.code.HttpCode())))
 
@@ -103,6 +114,8 @@ func (e *err) GRPCStatus() *status.Status {
 	}
 
 	if marshaled == nil {
+		e.status = st
+
 		return st
 	}
 
@@ -110,6 +123,8 @@ func (e *err) GRPCStatus() *status.Status {
 	if err != nil {
 		return status.New(grpcCodes.Internal, err.Error())
 	}
+
+	e.status = dSt
 
 	return dSt
 }
