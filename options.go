@@ -14,6 +14,7 @@ type errorOptions struct {
 	ctx          context.Context
 	internalCode *string
 	code         Code
+	reportable   bool
 }
 
 type ErrorOption interface {
@@ -86,5 +87,11 @@ func InternalCode(code string) ErrorOption {
 func ErrorCode(code Code) ErrorOption {
 	return newFuncErrorOption(func(o *errorOptions) {
 		o.code = code
+	})
+}
+
+func Reportable() ErrorOption {
+	return newFuncErrorOption(func(o *errorOptions) {
+		o.reportable = true
 	})
 }
