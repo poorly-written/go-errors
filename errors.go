@@ -42,7 +42,6 @@ type DetailedError interface {
 }
 
 type err struct {
-	status          *status.Status
 	message         string
 	original        error
 	frames          []frame
@@ -86,8 +85,6 @@ func (e *err) GRPCStatus() *status.Status {
 	}
 
 	if marshaled == nil {
-		e.status = st
-
 		return st
 	}
 
@@ -95,8 +92,6 @@ func (e *err) GRPCStatus() *status.Status {
 	if err != nil {
 		return status.New(grpcCodes.Internal, err.Error())
 	}
-
-	e.status = dSt
 
 	return dSt
 }
