@@ -25,8 +25,8 @@ type DetailedError interface {
 	AddTrailer(key string, value ...string) DetailedError
 	RemoveTrailer(key string) DetailedError
 	StackFrames() []frame
-	ShouldBeReport() DetailedError
-	ShouldReport() bool
+	ShouldBeReported() DetailedError
+	IsReportable() bool
 	Code(code Code) DetailedError
 	InternalCode(errorCode string) DetailedError
 	Context(ctx context.Context, extractMetadata ...bool) DetailedError
@@ -139,13 +139,13 @@ func (e *err) StackFrames() []frame {
 	return e.frames
 }
 
-func (e *err) ShouldBeReport() DetailedError {
+func (e *err) ShouldBeReported() DetailedError {
 	e.reportable = true
 
 	return e
 }
 
-func (e *err) ShouldReport() bool {
+func (e *err) IsReportable() bool {
 	return e.reportable
 }
 
