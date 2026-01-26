@@ -31,7 +31,7 @@ func SetHttpHeaderKey(key string) {
 	})
 }
 
-var defaultErrorCode = BadRequest
+var defaultErrorCode Code = BadRequest
 var defaultErrorCodeSetOnce sync.Once
 
 func SetDefaultErrorCode(code Code) {
@@ -40,7 +40,7 @@ func SetDefaultErrorCode(code Code) {
 	})
 }
 
-var defaultErrorCodeIfNotInMapper = BadRequest
+var defaultErrorCodeIfNotInMapper Code = BadRequest
 var defaultCodeIfNotInMapperSetOnce sync.Once
 
 func SetDefaultCodeIfNotInMapper(code Code) {

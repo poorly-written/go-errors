@@ -75,7 +75,7 @@ func (e *err) setTrailers(md metadata.MD) error {
 
 func (e *err) GRPCStatus() *status.Status {
 	// set http status code header
-	e.setHeaders(metadata.Pairs(httpHeaderKey, strconv.Itoa(e.code.http)))
+	e.setHeaders(metadata.Pairs(httpHeaderKey, strconv.Itoa(e.code.HttpCode())))
 
 	if e.headers.Len() > 0 {
 		e.setHeaders(e.headers)
