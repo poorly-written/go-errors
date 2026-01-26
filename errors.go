@@ -276,7 +276,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		headers:      make(metadata.MD),
 		trailers:     make(metadata.MD),
 		callerOffset: 2,
-		ctx:          nil,
+		ctx:          context.Background(),
 		internalCode: nil,
 		code:         defaultErrorCode,
 		reportable:   false,
@@ -315,15 +315,13 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 
 	statusCode := int(stErr.Code())
 	if httpStatusCode := errOpts.headers.Get(httpHeaderKey); len(httpStatusCode) > 0 {
+		// as header key is present, we're removing it.
+		// it will be added later in `GRPCStatus` method because of the status code
+		de.headers.Delete(httpHeaderKey)
+
 		if cc, e := strconv.Atoi(httpStatusCode[0]); e == nil {
 			statusCode = cc
 		}
-
-		// as header key is present, thus removing it. it will be added later in `GRPCStatus` method.
-		errOpts.headers.Delete(httpHeaderKey)
-
-		// set headers to the instance again
-		de.headers = errOpts.headers
 	}
 
 	// if a message is not provided and message from error is not an empty string, overwrite it
