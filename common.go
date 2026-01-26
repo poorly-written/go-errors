@@ -120,51 +120,79 @@ func SetCodeMapper(mapper map[int]Code) {
 	})
 }
 
-type extractDetails func(idx int, err any) (message *string, internalCode *string, reasons map[string][]Reason)
+type ErrorDetails struct {
+	Message      *string
+	InternalCode *string
+	Reasons      map[string][]Reason
+	Metadata     map[string]interface{}
+}
 
-var detailsExtractor extractDetails = func(_ int, err any) (*string, *string, map[string][]Reason) {
+type errorUnmarshalerFunc func(idx int, err any) (*ErrorDetails, error)
+
+var errorUnmarshaler errorUnmarshalerFunc = func(_ int, err any) (*ErrorDetails, error) {
 	anyErr, ok := err.(*anypb.Any)
 	if !ok {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	dErr := &DetailedErrorResponse{}
 	if err := anyErr.UnmarshalTo(dErr); err != nil {
-		return nil, nil, nil
+		return nil, err
 	}
 
-	var message, code *string
+	var details = &ErrorDetails{}
+
 	if dErr.Message != "" {
-		message = &dErr.Message
+		details.Message = &dErr.Message
 	}
 
 	if dErr.Code != nil {
-		code = dErr.Code
+		details.InternalCode = dErr.Code
 	}
 
-	var reasons map[string][]Reason
+	if dErr.Metadata != nil {
+		bytes, err := dErr.Metadata.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		var metadata map[string]interface{}
+		if err := json.Unmarshal(bytes, &metadata); err != nil {
+			return nil, err
+		}
+
+		details.Metadata = metadata
+	}
+
 	if dErr.Reasons != nil {
-		concrete := make(map[string][]reason)
-		if bytes, err := dErr.Reasons.MarshalJSON(); err == nil {
-			if err := json.Unmarshal(bytes, &concrete); err == nil {
-				reasons = make(map[string][]Reason, len(concrete))
-				for k, v := range concrete {
-					reasons[k] = make([]Reason, len(v))
-					for i, item := range v {
-						reasons[k][i] = item
-					}
-				}
+		bytes, err := dErr.Reasons.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		reasons := make(map[string][]reason)
+		if err := json.Unmarshal(bytes, &reasons); err != nil {
+			return nil, err
+		}
+
+		list := make(map[string][]Reason, len(reasons))
+		for k, v := range reasons {
+			list[k] = make([]Reason, len(v))
+			for i, item := range v {
+				list[k][i] = item
 			}
 		}
+
+		details.Reasons = list
 	}
 
-	return message, code, reasons
+	return details, nil
 }
 
-var reasonExtractorSetOnce sync.Once
+var errorUnmarshalerSetOnce sync.Once
 
-func SetReasonExtractor(extractor extractDetails) {
-	reasonExtractorSetOnce.Do(func() {
-		detailsExtractor = extractor
+func SetErrorUnmarshaler(unmarshaler errorUnmarshalerFunc) {
+	errorUnmarshalerSetOnce.Do(func() {
+		errorUnmarshaler = unmarshaler
 	})
 }

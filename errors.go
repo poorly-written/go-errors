@@ -238,21 +238,26 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 	}
 
 	for idx, detail := range stErr.Details() {
-		var message *string
-		var code *string
-		var reasons map[string][]Reason
-
-		message, code, reasons = detailsExtractor(idx, detail)
-		if message != nil {
-			de.message = *message
+		details, err := errorUnmarshaler(idx, detail)
+		if err != nil || details == nil {
+			continue
 		}
 
-		if code != nil {
-			de.internalCode = code
+		if details.Message != nil {
+			de.message = *details.Message
 		}
 
-		for k, v := range reasons {
+		if details.InternalCode != nil {
+			de.internalCode = details.InternalCode
+		}
+
+		for k, v := range details.Reasons {
 			de.reasons[k] = append(de.reasons[k], v...)
+		}
+
+		// metadata is always overwritten here, at least now, there is no intention to merge multiple metadata from details
+		for k, v := range details.Metadata {
+			de.metadata[k] = v
 		}
 	}
 
