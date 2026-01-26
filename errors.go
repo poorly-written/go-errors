@@ -20,13 +20,13 @@ type DetailedError interface {
 	Original() error
 	GRPCStatus() *status.Status
 	HasError() bool
-	AddMessage(msg string) DetailedError
+	Message(msg string) DetailedError
 	AddHeader(key string, value ...string) DetailedError
 	RemoveHeader(key string) DetailedError
 	AddTrailer(key string, value ...string) DetailedError
 	RemoveTrailer(key string) DetailedError
 	StackFrames() []frame
-	EnableShouldReport() DetailedError
+	ShouldBeReport() DetailedError
 	ShouldReport() bool
 	Code(code Code) DetailedError
 	InternalCode(errorCode string) DetailedError
@@ -133,7 +133,7 @@ func (e *err) HasError() bool {
 	return e.original != nil
 }
 
-func (e *err) AddMessage(msg string) DetailedError {
+func (e *err) Message(msg string) DetailedError {
 	e.message = msg
 
 	return e
@@ -167,7 +167,7 @@ func (e *err) StackFrames() []frame {
 	return e.frames
 }
 
-func (e *err) EnableShouldReport() DetailedError {
+func (e *err) ShouldBeReport() DetailedError {
 	e.reportable = true
 
 	return e
