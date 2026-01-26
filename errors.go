@@ -30,7 +30,7 @@ type DetailedError interface {
 	ShouldReport() bool
 	Code(code Code) DetailedError
 	InternalCode(errorCode string) DetailedError
-	Context(ctx context.Context) DetailedError
+	Context(ctx context.Context, extractMetadata ...bool) DetailedError
 	AddMetadata(key string, value interface{}) DetailedError
 	GetMetadata() map[string]interface{}
 	HasMetadata(keys ...string) bool
@@ -189,8 +189,18 @@ func (e *err) InternalCode(code string) DetailedError {
 	return e
 }
 
-func (e *err) Context(ctx context.Context) DetailedError {
+func (e *err) Context(ctx context.Context, extractMetadata ...bool) DetailedError {
 	e.ctx = ctx
+
+	if len(extractMetadata) == 0 || extractMetadata[0] == false {
+		return e
+	}
+
+	for _, extractor := range contextualMetadataExtractors {
+		if k, v, ok := extractor(ctx); ok {
+			e.AddMetadata(k, v)
+		}
+	}
 
 	return e
 }
