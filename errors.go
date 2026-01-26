@@ -279,6 +279,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		ctx:          nil,
 		internalCode: nil,
 		code:         defaultErrorCode,
+		reportable:   false,
 	}
 
 	for _, opt := range opts {
@@ -301,7 +302,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		trailers:     errOpts.trailers,
 		reasons:      make(map[string][]Reason),
 		code:         errOpts.code,
-		reportable:   false,
+		reportable:   errOpts.reportable,
 		internalCode: errOpts.internalCode,
 		metadata:     make(map[string]interface{}),
 		ctx:          errOpts.ctx,
