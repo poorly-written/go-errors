@@ -1,11 +1,13 @@
 package errors
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"runtime"
 	"strconv"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -26,6 +28,8 @@ type DetailedError interface {
 	ShouldReport() bool
 	Code(code Code) DetailedError
 	InternalCode(errorCode string) DetailedError
+	Context(ctx context.Context) DetailedError
+	IncludeMetadata() DetailedError
 	AddMetadata(key string, value interface{}) DetailedError
 	GetMetadata() map[string]interface{}
 	HasMetadata(keys ...string) bool
@@ -35,17 +39,18 @@ type DetailedError interface {
 }
 
 type err struct {
-	message      string
-	original     error
-	frames       []frame
-	stErr        *status.Status
-	headers      metadata.MD
-	trailers     metadata.MD
-	reasons      map[string][]Reason
-	reportable   bool
-	code         Code
-	internalCode *string
-	metadata     map[string]interface{}
+	message         string
+	original        error
+	frames          []frame
+	headers         metadata.MD
+	trailers        metadata.MD
+	reasons         map[string][]Reason
+	reportable      bool
+	code            Code
+	internalCode    *string
+	metadata        map[string]interface{}
+	includeMetadata bool
+	ctx             context.Context
 }
 
 func (e *err) Error() string {
@@ -60,8 +65,40 @@ func (e *err) Original() error {
 	return e.original
 }
 
+func (e *err) setHeaders(md metadata.MD) error {
+	return grpc.SetHeader(e.ctx, md)
+}
+
+func (e *err) setTrailers(md metadata.MD) error {
+	return grpc.SetTrailer(e.ctx, md)
+}
+
 func (e *err) GRPCStatus() *status.Status {
-	return e.stErr
+	// set http status code header
+	e.setHeaders(metadata.Pairs(httpHeaderKey, strconv.Itoa(e.code.http)))
+
+	if e.headers.Len() > 0 {
+		e.setHeaders(e.headers)
+	}
+
+	if e.trailers.Len() > 0 {
+		e.setTrailers(e.headers)
+	}
+
+	st := status.New(e.code.GrpcCode(), e.message)
+
+	marshaled, err := errorMarshaler(&ErrorDetails{
+		Message:         &e.message,
+		InternalCode:    e.internalCode,
+		Reasons:         e.reasons,
+		IncludeMetadata: e.includeMetadata,
+		Metadata:        e.metadata,
+	})
+	if err != nil && marshaled != nil {
+		st.WithDetails(marshaled)
+	}
+
+	return st
 }
 
 func (e *err) HasError() bool {
@@ -120,6 +157,18 @@ func (e *err) Code(code Code) DetailedError {
 
 func (e *err) InternalCode(code string) DetailedError {
 	e.internalCode = &code
+
+	return e
+}
+
+func (e *err) Context(ctx context.Context) DetailedError {
+	e.ctx = ctx
+
+	return e
+}
+
+func (e *err) IncludeMetadata() DetailedError {
+	e.includeMetadata = true
 
 	return e
 }
@@ -188,6 +237,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		trailers:     make(metadata.MD),
 		callerOffset: 2,
 		message:      message,
+		ctx:          nil,
 	}
 
 	for _, opt := range opts {
@@ -206,7 +256,6 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		message:      errOpts.message,
 		original:     original,
 		frames:       frames,
-		stErr:        nil,
 		headers:      errOpts.headers,
 		trailers:     errOpts.trailers,
 		reasons:      make(map[string][]Reason),
@@ -214,6 +263,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		reportable:   false,
 		internalCode: nil,
 		metadata:     make(map[string]interface{}),
+		ctx:          errOpts.ctx,
 	}
 
 	stErr, ok := status.FromError(original)

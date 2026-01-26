@@ -6,6 +6,7 @@ import (
 
 	grpcCodes "google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var stackTraceDepth = 50
@@ -121,10 +122,11 @@ func SetCodeMapper(mapper map[int]Code) {
 }
 
 type ErrorDetails struct {
-	Message      *string
-	InternalCode *string
-	Reasons      map[string][]Reason
-	Metadata     map[string]interface{}
+	Message         *string
+	InternalCode    *string
+	Reasons         map[string][]Reason
+	IncludeMetadata bool
+	Metadata        map[string]interface{}
 }
 
 type errorUnmarshalerFunc func(idx int, err any) (*ErrorDetails, error)
@@ -194,5 +196,60 @@ var errorUnmarshalerSetOnce sync.Once
 func SetErrorUnmarshaler(unmarshaler errorUnmarshalerFunc) {
 	errorUnmarshalerSetOnce.Do(func() {
 		errorUnmarshaler = unmarshaler
+	})
+}
+
+type errorMarshalerFunc func(*ErrorDetails) (*anypb.Any, error)
+
+var errorMarshaler errorMarshalerFunc = func(details *ErrorDetails) (*anypb.Any, error) {
+	// [Concept] https://stackoverflow.com/a/75720585/2190689
+	de := &DetailedErrorResponse{
+		Error: true,
+	}
+
+	if details.Message != nil {
+		de.Message = *details.Message
+	}
+
+	if details.InternalCode != nil {
+		de.Code = details.InternalCode
+	}
+
+	if reasons := details.Reasons; len(reasons) > 0 {
+		reasonsMap := make(map[string]interface{})
+		for key, items := range reasons {
+			list := make([]interface{}, len(items))
+			for i, each := range items {
+				list[i] = each.ToHashMap()
+			}
+
+			reasonsMap[key] = list
+		}
+
+		reasonPb, err := structpb.NewStruct(reasonsMap)
+		if err != nil {
+			return nil, err
+		}
+
+		de.Reasons = reasonPb
+	}
+
+	if details.IncludeMetadata && len(details.Metadata) > 0 {
+		mdPb, err := structpb.NewStruct(details.Metadata)
+		if err != nil {
+			return nil, err
+		}
+
+		de.Metadata = mdPb
+	}
+
+	return anypb.New(de)
+}
+
+var errorMarshalerSetOnce sync.Once
+
+func SetErrorMarshaler(marshaler errorMarshalerFunc) {
+	errorMarshalerSetOnce.Do(func() {
+		errorMarshaler = marshaler
 	})
 }
