@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"runtime"
 	"strconv"
-	"sync"
 
 	"google.golang.org/grpc"
 	grpcCodes "google.golang.org/grpc/codes"
@@ -39,10 +38,10 @@ type DetailedError interface {
 	GetReasons() map[string][]Reason
 	HasReasons(keys ...string) bool
 	Append(key string, value interface{}) DetailedError
+	Send()
 }
 
 type err struct {
-	lock            sync.Mutex
 	status          *status.Status
 	message         string
 	original        error
@@ -70,34 +69,7 @@ func (e *err) Original() error {
 	return e.original
 }
 
-func (e *err) setHeaders() error {
-	return grpc.SetHeader(e.ctx, e.headers)
-}
-
-func (e *err) setTrailers() error {
-	return grpc.SetTrailer(e.ctx, e.trailers)
-}
-
 func (e *err) GRPCStatus() *status.Status {
-	// This method is called multiple times, using mutex so that it is only generated once
-	e.lock.Lock()
-	defer e.lock.Unlock()
-
-	if e.status != nil {
-		return e.status
-	}
-
-	// set http status code header
-	e.headers.Set(httpHeaderKey, strconv.Itoa(e.code.HttpCode()))
-
-	if e.headers.Len() > 0 {
-		e.setHeaders()
-	}
-
-	if e.trailers.Len() > 0 {
-		e.setTrailers()
-	}
-
 	st := status.New(e.code.GrpcCode(), e.message)
 
 	marshaled, err := errorMarshaler(&ErrorDetails{
@@ -270,6 +242,19 @@ func (e *err) Append(key string, value interface{}) DetailedError {
 	}
 
 	return e.AddMetadata(key, value)
+}
+
+func (e *err) Send() {
+	// set http status code header
+	e.headers.Set(httpHeaderKey, strconv.Itoa(e.code.HttpCode()))
+
+	if e.headers.Len() > 0 {
+		grpc.SetHeader(e.ctx, e.headers)
+	}
+
+	if e.trailers.Len() > 0 {
+		grpc.SetTrailer(e.ctx, e.trailers)
+	}
 }
 
 func New(e interface{}, opts ...ErrorOption) DetailedError {
