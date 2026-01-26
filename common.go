@@ -262,13 +262,15 @@ func SetErrorMarshaler(marshaler errorMarshalerFunc) {
 	})
 }
 
-type contextualMetadataExtractor func(ctx context.Context) (key string, value interface{}, ok bool)
+type contextualMetadataExtractorFunc func(ctx context.Context) map[string]interface{}
 
 var contextualMetadataExtractorSetOnce sync.Once
-var contextualMetadataExtractors = make([]contextualMetadataExtractor, 0)
+var contextualMetadataExtractor contextualMetadataExtractorFunc = func(ctx context.Context) map[string]interface{} {
+	return nil
+}
 
-func SetContextualMetadataExtractor(extractors ...contextualMetadataExtractor) {
+func SetContextualMetadataExtractor(extractor contextualMetadataExtractorFunc) {
 	contextualMetadataExtractorSetOnce.Do(func() {
-		contextualMetadataExtractors = extractors
+		contextualMetadataExtractor = extractor
 	})
 }

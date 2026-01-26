@@ -196,10 +196,8 @@ func (e *err) Context(ctx context.Context, extractMetadata ...bool) DetailedErro
 		return e
 	}
 
-	for _, extractor := range contextualMetadataExtractors {
-		if k, v, ok := extractor(ctx); ok {
-			e.AddMetadata(k, v)
-		}
+	for k, v := range contextualMetadataExtractor(ctx) {
+		e.AddMetadata(k, v)
 	}
 
 	return e
