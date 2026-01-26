@@ -318,6 +318,12 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		if cc, e := strconv.Atoi(httpStatusCode[0]); e == nil {
 			statusCode = cc
 		}
+
+		// as header key is present, thus removing it. it will be added later in `GRPCStatus` method.
+		errOpts.headers.Delete(httpHeaderKey)
+
+		// set headers to the instance again
+		de.headers = errOpts.headers
 	}
 
 	// if a message is not provided and message from error is not an empty string, overwrite it
