@@ -70,12 +70,12 @@ func (e *err) Original() error {
 	return e.original
 }
 
-func (e *err) setHeaders(md metadata.MD) error {
-	return grpc.SetHeader(e.ctx, md)
+func (e *err) setHeaders() error {
+	return grpc.SetHeader(e.ctx, e.headers)
 }
 
-func (e *err) setTrailers(md metadata.MD) error {
-	return grpc.SetTrailer(e.ctx, md)
+func (e *err) setTrailers() error {
+	return grpc.SetTrailer(e.ctx, e.trailers)
 }
 
 func (e *err) GRPCStatus() *status.Status {
@@ -88,14 +88,14 @@ func (e *err) GRPCStatus() *status.Status {
 	}
 
 	// set http status code header
-	e.setHeaders(metadata.Pairs(httpHeaderKey, strconv.Itoa(e.code.HttpCode())))
+	e.headers.Set(httpHeaderKey, strconv.Itoa(e.code.HttpCode()))
 
 	if e.headers.Len() > 0 {
-		e.setHeaders(e.headers)
+		e.setHeaders()
 	}
 
 	if e.trailers.Len() > 0 {
-		e.setTrailers(e.headers)
+		e.setTrailers()
 	}
 
 	st := status.New(e.code.GrpcCode(), e.message)
