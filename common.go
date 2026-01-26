@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 
@@ -258,5 +259,16 @@ var errorMarshalerSetOnce sync.Once
 func SetErrorMarshaler(marshaler errorMarshalerFunc) {
 	errorMarshalerSetOnce.Do(func() {
 		errorMarshaler = marshaler
+	})
+}
+
+type contextualMetadataExtractor func(ctx context.Context) (key string, value interface{}, ok bool)
+
+var contextualMetadataExtractorSetOnce sync.Once
+var contextualMetadataExtractors = make([]contextualMetadataExtractor, 0)
+
+func SetContextualMetadataExtractor(extractors ...contextualMetadataExtractor) {
+	contextualMetadataExtractorSetOnce.Do(func() {
+		contextualMetadataExtractors = extractors
 	})
 }
