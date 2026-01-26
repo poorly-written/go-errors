@@ -36,6 +36,7 @@ type DetailedError interface {
 	AddReason(key string, reason Reason) DetailedError
 	HasReasons() bool
 	GetReasons() map[string][]Reason
+	Append(key string, value interface{}) DetailedError
 }
 
 type err struct {
@@ -209,6 +210,17 @@ func (e *err) HasReasons() bool {
 
 func (e *err) GetReasons() map[string][]Reason {
 	return e.reasons
+}
+
+// Append method appends either to reasons or metadata based on the value provided.
+// If the value is a type of `Reason`, then append forwards the call to the
+// `AddReason` function. Otherwise, it forwards the call to the `AddMetadata` function.
+func (e *err) Append(key string, value interface{}) DetailedError {
+	if r, ok := value.(Reason); ok {
+		return e.AddReason(key, r)
+	}
+
+	return e.AddMetadata(key, value)
 }
 
 func New(e interface{}, opts ...ErrorOption) DetailedError {
