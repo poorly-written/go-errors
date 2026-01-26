@@ -12,6 +12,8 @@ type errorOptions struct {
 	trailers     metadata.MD
 	callerOffset int
 	ctx          context.Context
+	internalCode *string
+	code         Code
 }
 
 type ErrorOption interface {
@@ -72,5 +74,17 @@ func CallerOffset(callerOffset int, startsFromOffset ...bool) ErrorOption {
 func Context(ctx context.Context) ErrorOption {
 	return newFuncErrorOption(func(o *errorOptions) {
 		o.ctx = ctx
+	})
+}
+
+func InternalCode(code string) ErrorOption {
+	return newFuncErrorOption(func(o *errorOptions) {
+		o.internalCode = &code
+	})
+}
+
+func ErrorCode(code Code) ErrorOption {
+	return newFuncErrorOption(func(o *errorOptions) {
+		o.code = code
 	})
 }

@@ -272,11 +272,13 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 	}
 
 	errOpts := &errorOptions{
+		message:      message,
 		headers:      make(metadata.MD),
 		trailers:     make(metadata.MD),
 		callerOffset: 2,
-		message:      message,
 		ctx:          nil,
+		internalCode: nil,
+		code:         nil,
 	}
 
 	for _, opt := range opts {
@@ -291,6 +293,11 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		frames[i] = frame(pc)
 	}
 
+	var code = defaultErrorCode
+	if errOpts.code != nil {
+		code = errOpts.code
+	}
+
 	de := &err{
 		message:      errOpts.message,
 		original:     original,
@@ -298,9 +305,9 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		headers:      errOpts.headers,
 		trailers:     errOpts.trailers,
 		reasons:      make(map[string][]Reason),
-		code:         defaultErrorCode,
+		code:         code,
 		reportable:   false,
-		internalCode: nil,
+		internalCode: errOpts.internalCode,
 		metadata:     make(map[string]interface{}),
 		ctx:          errOpts.ctx,
 	}
