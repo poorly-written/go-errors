@@ -122,7 +122,7 @@ func SetCodeMapper(mapper map[int]Code) {
 	})
 }
 
-func AddCodeMapper(when int, code Code) {
+func AddToCodeMapper(when int, code Code) {
 	useCodeMapperLock.Lock()
 	defer useCodeMapperLock.Unlock()
 	codeMapper[when] = code
