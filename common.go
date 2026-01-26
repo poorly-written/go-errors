@@ -50,6 +50,7 @@ func SetDefaultCodeIfNotInMapper(code Code) {
 }
 
 var codeMapperSetOnce sync.Once
+var useCodeMapperLock sync.Mutex
 var codeMapper = map[int]Code{
 	int(grpcCodes.OK):                 Ok,
 	int(grpcCodes.Canceled):           ClientClosedRequest,
@@ -119,6 +120,12 @@ func SetCodeMapper(mapper map[int]Code) {
 	codeMapperSetOnce.Do(func() {
 		codeMapper = mapper
 	})
+}
+
+func AddCodeMapper(when int, code Code) {
+	useCodeMapperLock.Lock()
+	defer useCodeMapperLock.Unlock()
+	codeMapper[when] = code
 }
 
 type ErrorDetails struct {
