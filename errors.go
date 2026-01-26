@@ -38,7 +38,7 @@ type DetailedError interface {
 	GetReasons() map[string][]Reason
 	HasReasons(keys ...string) bool
 	Append(key string, value interface{}) DetailedError
-	Send()
+	Send() error
 }
 
 type err struct {
@@ -239,7 +239,7 @@ func (e *err) Append(key string, value interface{}) DetailedError {
 	return e.AddMetadata(key, value)
 }
 
-func (e *err) Send() {
+func (e *err) Send() error {
 	// set http status code header
 	e.headers.Set(httpHeaderKey, strconv.Itoa(e.code.HttpCode()))
 
@@ -250,6 +250,8 @@ func (e *err) Send() {
 	if e.trailers.Len() > 0 {
 		grpc.SetTrailer(e.ctx, e.trailers)
 	}
+
+	return e.GRPCStatus().Err()
 }
 
 func New(e interface{}, opts ...ErrorOption) DetailedError {
