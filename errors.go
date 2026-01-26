@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"google.golang.org/grpc"
+	grpcCodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -95,11 +96,22 @@ func (e *err) GRPCStatus() *status.Status {
 		IncludeMetadata: e.includeMetadata,
 		Metadata:        e.metadata,
 	})
-	if err != nil && marshaled != nil {
-		st.WithDetails(marshaled)
+
+	// error occurred during error marshalling
+	if err != nil {
+		return status.New(grpcCodes.Internal, err.Error())
 	}
 
-	return st
+	if marshaled == nil {
+		return st
+	}
+
+	dSt, err := st.WithDetails(marshaled)
+	if err != nil {
+		return status.New(grpcCodes.Internal, err.Error())
+	}
+
+	return dSt
 }
 
 func (e *err) HasError() bool {
