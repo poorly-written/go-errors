@@ -31,13 +31,13 @@ type DetailedError interface {
 	Code(code Code) DetailedError
 	InternalCode(errorCode string) DetailedError
 	Context(ctx context.Context) DetailedError
-	IncludeMetadata() DetailedError
 	AddMetadata(key string, value interface{}) DetailedError
 	GetMetadata() map[string]interface{}
 	HasMetadata(keys ...string) bool
+	IncludeMetadata() DetailedError
 	AddReason(key string, reason Reason) DetailedError
-	HasReasons() bool
 	GetReasons() map[string][]Reason
+	HasReasons(keys ...string) bool
 	Append(key string, value interface{}) DetailedError
 }
 
@@ -212,13 +212,17 @@ func (e *err) GetMetadata() map[string]interface{} {
 }
 
 func (e *err) HasMetadata(keys ...string) bool {
-	if len(keys) == 0 {
-		return len(e.metadata) > 0
+	if len(e.metadata) == 0 {
+		return false
 	}
 
-	_, ok := e.metadata[keys[0]]
+	for _, key := range keys {
+		if _, ok := e.metadata[key]; !ok {
+			return false
+		}
+	}
 
-	return ok
+	return true
 }
 
 func (e *err) AddReason(key string, reason Reason) DetailedError {
@@ -231,8 +235,18 @@ func (e *err) AddReason(key string, reason Reason) DetailedError {
 	return e
 }
 
-func (e *err) HasReasons() bool {
-	return len(e.reasons) > 0
+func (e *err) HasReasons(keys ...string) bool {
+	if len(e.reasons) == 0 {
+		return false
+	}
+
+	for _, key := range keys {
+		if _, ok := e.reasons[key]; !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (e *err) GetReasons() map[string][]Reason {
