@@ -284,10 +284,15 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		internalCode: nil,
 		code:         defaultErrorCode,
 		reportable:   false,
+		skipOnNil:    false,
 	}
 
 	for _, opt := range opts {
 		opt.apply(errOpts)
+	}
+
+	if errOpts.skipOnNil && e == nil {
+		return nil
 	}
 
 	callers := make([]uintptr, stackTraceDepth)
