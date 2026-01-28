@@ -276,27 +276,27 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 	}
 
 	errOpts := &errorOptions{
-		message:      message,
-		headers:      make(metadata.MD),
-		trailers:     make(metadata.MD),
-		callerOffset: 2,
-		ctx:          context.Background(),
-		internalCode: nil,
-		code:         defaultErrorCode,
-		reportable:   false,
-		skipOnNil:    false,
+		Message:      message,
+		Headers:      make(metadata.MD),
+		Trailers:     make(metadata.MD),
+		CallerOffset: 2,
+		Ctx:          context.Background(),
+		InternalCode: nil,
+		Code:         defaultErrorCode,
+		Reportable:   false,
+		SkipOnNil:    false,
 	}
 
 	for _, opt := range opts {
 		opt.apply(original, errOpts)
 	}
 
-	if errOpts.skipOnNil && e == nil {
+	if errOpts.SkipOnNil && e == nil {
 		return nil
 	}
 
 	callers := make([]uintptr, stackTraceDepth)
-	length := runtime.Callers(errOpts.callerOffset, callers[:])
+	length := runtime.Callers(errOpts.CallerOffset, callers[:])
 
 	frames := make([]frame, length)
 	for i, pc := range callers[:length] {
@@ -304,17 +304,17 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 	}
 
 	de := &err{
-		message:      errOpts.message,
+		message:      errOpts.Message,
 		original:     original,
 		frames:       frames,
-		headers:      errOpts.headers,
-		trailers:     errOpts.trailers,
+		headers:      errOpts.Headers,
+		trailers:     errOpts.Trailers,
 		reasons:      make(map[string][]Reason),
-		code:         errOpts.code,
-		reportable:   errOpts.reportable,
-		internalCode: errOpts.internalCode,
+		code:         errOpts.Code,
+		reportable:   errOpts.Reportable,
+		internalCode: errOpts.InternalCode,
 		metadata:     make(map[string]interface{}),
-		ctx:          errOpts.ctx,
+		ctx:          errOpts.Ctx,
 	}
 
 	stErr, ok := status.FromError(original)
@@ -323,7 +323,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 	}
 
 	statusCode := int(stErr.Code())
-	if httpStatusCode := errOpts.headers.Get(httpHeaderKey); len(httpStatusCode) > 0 {
+	if httpStatusCode := errOpts.Headers.Get(httpHeaderKey); len(httpStatusCode) > 0 {
 		// as header key is present, we're removing it.
 		// it will be added later in `GRPCStatus` method because of the status code
 		de.headers.Delete(httpHeaderKey)

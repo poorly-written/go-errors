@@ -7,15 +7,15 @@ import (
 )
 
 type errorOptions struct {
-	message      string
-	headers      metadata.MD
-	trailers     metadata.MD
-	callerOffset int
-	ctx          context.Context
-	internalCode *string
-	code         Code
-	reportable   bool
-	skipOnNil    bool
+	Message      string
+	Headers      metadata.MD
+	Trailers     metadata.MD
+	CallerOffset int
+	Ctx          context.Context
+	InternalCode *string
+	Code         Code
+	Reportable   bool
+	SkipOnNil    bool
 }
 
 type ErrorOption interface {
@@ -38,19 +38,19 @@ func newFuncErrorOption(f func(error, *errorOptions)) *funcErrorOption {
 
 func Message(msg string) ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.message = msg
+		o.Message = msg
 	})
 }
 
 func Headers(headers metadata.MD) ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.headers = headers
+		o.Headers = headers
 	})
 }
 
 func Trailers(trailers metadata.MD) ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.trailers = trailers
+		o.Trailers = trailers
 	})
 }
 
@@ -66,39 +66,39 @@ func CallerOffset(callerOffset int, startsFromOffset ...bool) ErrorOption {
 		}
 
 		if fromOffset {
-			o.callerOffset = callerOffset
+			o.CallerOffset = callerOffset
 		} else {
-			o.callerOffset += callerOffset
+			o.CallerOffset += callerOffset
 		}
 	})
 }
 
 func Context(ctx context.Context) ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.ctx = ctx
+		o.Ctx = ctx
 	})
 }
 
 func InternalCode(code string) ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.internalCode = &code
+		o.InternalCode = &code
 	})
 }
 
 func ErrorCode(code Code) ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.code = code
+		o.Code = code
 	})
 }
 
 func Reportable() ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.reportable = true
+		o.Reportable = true
 	})
 }
 
 func SkipOnNil() ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.skipOnNil = true
+		o.SkipOnNil = true
 	})
 }
