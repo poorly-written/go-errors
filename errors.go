@@ -284,14 +284,14 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		internalCode: nil,
 		code:         defaultErrorCode,
 		reportable:   false,
-		skipOnNil:    false,
+		skipIfNil:    false,
 	}
 
 	for _, opt := range opts {
 		opt.apply(original, errOpts)
 	}
 
-	if errOpts.skipOnNil && e == nil {
+	if errOpts.skipIfNil && e == nil {
 		return nil
 	}
 

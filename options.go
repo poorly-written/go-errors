@@ -15,7 +15,7 @@ type errorOptions struct {
 	internalCode *string
 	code         Code
 	reportable   bool
-	skipOnNil    bool
+	skipIfNil    bool
 }
 
 type ErrorOption interface {
@@ -99,9 +99,9 @@ func Reportable() ErrorOption {
 	})
 }
 
-func SkipOnNil() ErrorOption {
+func SkipIfNil() ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
-		o.skipOnNil = true
+		o.skipIfNil = true
 	})
 }
 
