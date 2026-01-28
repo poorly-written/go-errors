@@ -288,7 +288,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 	}
 
 	for _, opt := range opts {
-		opt.apply(errOpts)
+		opt.apply(original, errOpts)
 	}
 
 	if errOpts.skipOnNil && e == nil {
