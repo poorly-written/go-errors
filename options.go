@@ -22,15 +22,17 @@ type ErrorOption interface {
 	apply(error, *errorOptions)
 }
 
+type errorOptionModifier func(error, *errorOptions)
+
 type funcErrorOption struct {
-	f func(error, *errorOptions)
+	f errorOptionModifier
 }
 
 func (fo *funcErrorOption) apply(err error, opt *errorOptions) {
 	fo.f(err, opt)
 }
 
-func newFuncErrorOption(f func(error, *errorOptions)) *funcErrorOption {
+func newFuncErrorOption(f errorOptionModifier) *funcErrorOption {
 	return &funcErrorOption{
 		f: f,
 	}
@@ -100,5 +102,11 @@ func Reportable() ErrorOption {
 func SkipOnNil() ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
 		o.SkipOnNil = true
+	})
+}
+
+func ErrorOptionModifier(modifier errorOptionModifier) ErrorOption {
+	return newFuncErrorOption(func(err error, o *errorOptions) {
+		modifier(err, o)
 	})
 }
