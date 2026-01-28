@@ -105,8 +105,10 @@ func SkipOnNil() ErrorOption {
 	})
 }
 
-func ErrorOptionModifier(modifier errorOptionModifier) ErrorOption {
+func Options(modifier func(err error) []ErrorOption) ErrorOption {
 	return newFuncErrorOption(func(err error, o *errorOptions) {
-		modifier(err, o)
+		for _, changes := range modifier(err) {
+			changes.apply(err, o)
+		}
 	})
 }
