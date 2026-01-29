@@ -7,8 +7,9 @@ import (
 	"runtime"
 	"strconv"
 
+	response "github.com/poorly-written/grpc-http-response"
+	"github.com/poorly-written/grpc-http-response/codes"
 	"google.golang.org/grpc"
-	grpcCodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -27,7 +28,7 @@ type DetailedError interface {
 	StackFrames() []frame
 	ShouldBeReported() DetailedError
 	IsReportable() bool
-	Code(code Code) DetailedError
+	Code(code codes.Code) DetailedError
 	InternalCode(errorCode string) DetailedError
 	Context(ctx context.Context, extractMetadata ...bool) DetailedError
 	AddMetadata(key string, value interface{}) DetailedError
@@ -49,7 +50,7 @@ type err struct {
 	trailers        metadata.MD
 	reasons         map[string][]Reason
 	reportable      bool
-	code            Code
+	code            codes.Code
 	internalCode    *string
 	metadata        map[string]interface{}
 	includeMetadata bool
@@ -81,7 +82,7 @@ func (e *err) GRPCStatus() *status.Status {
 
 	// error occurred during error marshalling
 	if err != nil {
-		return status.New(grpcCodes.Internal, err.Error())
+		return status.New(codes.InternalServerError.GrpcCode(), err.Error())
 	}
 
 	if marshaled == nil {
@@ -90,7 +91,7 @@ func (e *err) GRPCStatus() *status.Status {
 
 	dSt, err := st.WithDetails(marshaled)
 	if err != nil {
-		return status.New(grpcCodes.Internal, err.Error())
+		return status.New(codes.InternalServerError.GrpcCode(), err.Error())
 	}
 
 	return dSt
@@ -144,7 +145,7 @@ func (e *err) IsReportable() bool {
 	return e.reportable
 }
 
-func (e *err) Code(code Code) DetailedError {
+func (e *err) Code(code codes.Code) DetailedError {
 	e.code = code
 
 	return e
@@ -240,8 +241,10 @@ func (e *err) Append(key string, value interface{}) DetailedError {
 }
 
 func (e *err) Send() error {
-	// set http status code header
-	e.headers.Set(httpHeaderKey, strconv.Itoa(e.code.HttpCode()))
+	// set http status code in the header
+	if err := response.SetHttpStatusHeader(e.ctx, e.code.HttpCode()); err != nil {
+		return err
+	}
 
 	if e.headers.Len() > 0 {
 		grpc.SetHeader(e.ctx, e.headers)
@@ -323,6 +326,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 	}
 
 	statusCode := int(stErr.Code())
+	httpHeaderKey := response.GetHttpHeaderKey()
 	if httpStatusCode := errOpts.headers.Get(httpHeaderKey); len(httpStatusCode) > 0 {
 		// as header key is present, we're removing it.
 		// it will be added later in `GRPCStatus` method because of the status code
@@ -338,7 +342,7 @@ func New(e interface{}, opts ...ErrorOption) DetailedError {
 		de.message = stMsg
 	}
 
-	if code := codeFromValue(statusCode); code.IsError() {
+	if code := codes.Find(statusCode); code.IsError() {
 		de.code = code
 	}
 

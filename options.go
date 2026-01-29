@@ -3,6 +3,7 @@ package errors
 import (
 	"context"
 
+	"github.com/poorly-written/grpc-http-response/codes"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -13,7 +14,7 @@ type errorOptions struct {
 	callerOffset int
 	ctx          context.Context
 	internalCode *string
-	code         Code
+	code         codes.Code
 	reportable   bool
 	skipIfNil    bool
 }
@@ -87,7 +88,7 @@ func InternalCode(code string) ErrorOption {
 	})
 }
 
-func ErrorCode(code Code) ErrorOption {
+func ErrorCode(code codes.Code) ErrorOption {
 	return newFuncErrorOption(func(_ error, o *errorOptions) {
 		o.code = code
 	})
