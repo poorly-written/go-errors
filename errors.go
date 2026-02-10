@@ -23,8 +23,10 @@ type DetailedError interface {
 	Message(msg string) DetailedError
 	AddHeader(key string, value ...string) DetailedError
 	RemoveHeader(key string) DetailedError
+	GetHeaders() metadata.MD
 	AddTrailer(key string, value ...string) DetailedError
 	RemoveTrailer(key string) DetailedError
+	GetTrailers() metadata.MD
 	StackFrames() []frame
 	ShouldBeReported() DetailedError
 	IsReportable() bool
@@ -39,6 +41,7 @@ type DetailedError interface {
 	GetReasons() map[string][]Reason
 	HasReasons(keys ...string) bool
 	Append(key string, value interface{}) DetailedError
+	Merge(err error) DetailedError
 	Send() error
 }
 
@@ -119,6 +122,10 @@ func (e *err) RemoveHeader(key string) DetailedError {
 	return e
 }
 
+func (e *err) GetHeaders() metadata.MD {
+	return e.headers
+}
+
 func (e *err) AddTrailer(key string, value ...string) DetailedError {
 	e.trailers[key] = append(e.trailers[key], value...)
 
@@ -129,6 +136,10 @@ func (e *err) RemoveTrailer(key string) DetailedError {
 	delete(e.trailers, key)
 
 	return e
+}
+
+func (e *err) GetTrailers() metadata.MD {
+	return e.trailers
 }
 
 func (e *err) StackFrames() []frame {
@@ -199,6 +210,35 @@ func (e *err) HasMetadata(keys ...string) bool {
 	}
 
 	return true
+}
+
+func (e *err) Merge(err error) DetailedError {
+	var de DetailedError
+	if !errors.As(err, &de) {
+		return e
+	}
+
+	for key, reasons := range de.GetReasons() {
+		if _, ok := e.reasons[key]; !ok {
+			e.reasons[key] = reasons
+		} else {
+			e.reasons[key] = append(e.reasons[key], reasons...)
+		}
+	}
+
+	for key, md := range de.GetMetadata() {
+		e.metadata[key] = md
+	}
+
+	for k, headers := range de.GetHeaders() {
+		e.headers.Append(k, headers...)
+	}
+
+	for k, trailers := range de.GetTrailers() {
+		e.trailers.Append(k, trailers...)
+	}
+
+	return e
 }
 
 func (e *err) AddReason(key string, reason any) DetailedError {
