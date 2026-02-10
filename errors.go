@@ -35,7 +35,7 @@ type DetailedError interface {
 	GetMetadata() map[string]interface{}
 	HasMetadata(keys ...string) bool
 	IncludeMetadata() DetailedError
-	AddReason(key string, reason Reason) DetailedError
+	AddReason(key string, reason any) DetailedError
 	GetReasons() map[string][]Reason
 	HasReasons(keys ...string) bool
 	Append(key string, value interface{}) DetailedError
@@ -201,12 +201,22 @@ func (e *err) HasMetadata(keys ...string) bool {
 	return true
 }
 
-func (e *err) AddReason(key string, reason Reason) DetailedError {
+func (e *err) AddReason(key string, reason any) DetailedError {
 	if _, ok := e.reasons[key]; !ok {
 		e.reasons[key] = make([]Reason, 0)
 	}
 
-	e.reasons[key] = append(e.reasons[key], reason)
+	var r Reason
+	switch v := reason.(type) {
+	case Reason:
+		r = v
+	case error:
+		r = SimpleReason(v.Error())
+	default:
+		r = SimpleReason(fmt.Sprintf("%v", v))
+	}
+
+	e.reasons[key] = append(e.reasons[key], r)
 
 	return e
 }
