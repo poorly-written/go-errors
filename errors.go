@@ -31,6 +31,7 @@ type DetailedError interface {
 	ShouldBeReported() DetailedError
 	IsReportable() bool
 	Code(code codes.Code) DetailedError
+	IsCode(code codes.Code) bool
 	InternalCode(errorCode string) DetailedError
 	Context(ctx context.Context, extractMetadata ...bool) DetailedError
 	AddMetadata(key string, value interface{}) DetailedError
@@ -160,6 +161,14 @@ func (e *err) Code(code codes.Code) DetailedError {
 	e.code = code
 
 	return e
+}
+
+func (e *err) IsCode(code codes.Code) bool {
+	if e.code == nil || code == nil {
+		return false
+	}
+
+	return e.code.HttpCode() == code.HttpCode() && e.code.GrpcCode() == code.GrpcCode()
 }
 
 func (e *err) InternalCode(code string) DetailedError {
