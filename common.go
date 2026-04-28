@@ -3,6 +3,8 @@ package errors
 import (
 	"context"
 	"encoding/json"
+	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/poorly-written/grpc-http-response/codes"
@@ -176,4 +178,80 @@ func SetContextualMetadataExtractor(extractor contextualMetadataExtractorFunc) {
 	contextualMetadataExtractorSetOnce.Do(func() {
 		contextualMetadataExtractor = extractor
 	})
+}
+
+const (
+	MatcherKindInternalCode = "internal-code"
+	MatcherKindErrorMessage = "error-message"
+	MatcherKindCode         = "code"
+)
+
+type Matcher interface {
+	Kind() string
+	Matches(actual any) bool
+}
+
+type comparer func(actual, expected string) bool
+
+type stringMatcher struct {
+	kind     string
+	expected string
+	comparer comparer
+}
+
+func RegexComparer() comparer {
+	return func(actual, expected string) bool {
+		return regexp.MustCompile(expected).MatchString(actual)
+	}
+}
+
+func lowercasedSubstringComparer(actual, expected string) bool {
+	return strings.Contains(strings.ToLower(actual), strings.ToLower(expected))
+}
+
+func exactComparer(actual, expected string) bool {
+	return actual == expected
+}
+
+func (m *stringMatcher) Kind() string {
+	return m.kind
+}
+
+func (m *stringMatcher) Matches(actual any) bool {
+	if actual == nil {
+		return false
+	}
+
+	v, ok := actual.(string)
+	if !ok {
+		return false
+	}
+
+	return m.comparer(v, m.expected)
+}
+
+func InternalCodeMatcher(expected string, comparers ...comparer) *stringMatcher {
+	comp := exactComparer
+	if len(comparers) > 0 {
+		comp = comparers[0]
+	}
+
+	return &stringMatcher{
+		kind:     MatcherKindInternalCode,
+		expected: expected,
+		comparer: comp,
+	}
+}
+
+func ErrorMessageMatcher(expected string, comparers ...comparer) *stringMatcher {
+	comp := lowercasedSubstringComparer
+	if len(comparers) > 0 {
+		comp = comparers[0]
+	}
+
+	return &stringMatcher{
+		kind:     MatcherKindErrorMessage,
+		expected: expected,
+		comparer: comp,
+	}
 }
