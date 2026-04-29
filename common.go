@@ -199,10 +199,8 @@ type stringMatcher struct {
 	comparer comparer
 }
 
-func RegexComparer() comparer {
-	return func(actual, expected string) bool {
-		return regexp.MustCompile(expected).MatchString(actual)
-	}
+func RegexComparer(actual, expected string) bool {
+	return regexp.MustCompile(expected).MatchString(actual)
 }
 
 func lowercasedSubstringComparer(actual, expected string) bool {
